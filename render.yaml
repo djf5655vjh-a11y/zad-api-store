@@ -3,6 +3,7 @@ services:
     name: zad-osint-api-store
     runtime: python
     plan: free
+    region: ohio
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 2 --timeout 60
     healthCheckPath: /health
