@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{% block title %}{{ S.site_name }}{% endblock %}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link rel="stylesheet" href="/style.css">
+</head><body>
+<div class="bg"><span class="b1"></span><span class="b2"></span><span class="b3"></span></div>
+{% block body %}
+{% if user %}
+<nav class="top glass">
+  <a class="brand" href="{{ url_for('store') }}"><i class="fa-solid fa-user-secret"></i>{{ S.site_name }}</a>
+  <a class="l {% if request.endpoint=='store' %}on{% endif %}" href="{{ url_for('store') }}"><i class="fa-solid fa-store"></i> Store</a>
+  <a class="l {% if request.endpoint=='dashboard' %}on{% endif %}" href="{{ url_for('dashboard') }}"><i class="fa-solid fa-key"></i> My APIs</a>
+  {% if user.is_admin %}<a class="l {% if request.endpoint=='admin' %}on{% endif %}" href="{{ url_for('admin') }}"><i class="fa-solid fa-gauge"></i> Admin</a>{% endif %}
+  <span class="chip"><i class="fa-solid fa-circle-user"></i> {{ user.username }}</span>
+  <a class="l" href="{{ url_for('logout') }}" title="Logout"><i class="fa-solid fa-right-from-bracket"></i></a>
+</nav>
+{% endif %}
+{% for cat, m in get_flashed_messages(with_categories=true) %}<div class="flash {{ cat }}">{{ m }}</div>{% endfor %}
+<main>{% block content %}{% endblock %}</main>
+<footer>&copy; {{ S.site_name }} &middot; Credit: <b>{{ S.credit }}</b></footer>
+{% endblock %}
+<script>
+document.querySelectorAll('[data-copy]').forEach(b=>b.addEventListener('click',()=>{
+  navigator.clipboard.writeText(b.dataset.copy).then(()=>{const t=b.innerHTML;b.innerHTML='<i class="fa-solid fa-check"></i> Copied';setTimeout(()=>b.innerHTML=t,1400)})}));
+setTimeout(()=>document.querySelectorAll('.flash').forEach(f=>f.style.display='none'),7000);
+</script>
+{% block js %}{% endblock %}
+</body></html>

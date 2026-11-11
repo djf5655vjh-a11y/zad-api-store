@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>API Store</h1>
+<p class="sub">Pick an API, pay with UPI, and your key is activated automatically.</p>
+{% if S.announcement %}<div class="glass ann"><i class="fa-solid fa-bullhorn"></i> {{ S.announcement }}</div>{% endif %}
+<div class="toolbar">
+  <input id="search" placeholder="Search APIs..." aria-label="Search APIs">
+  <button class="pill on" data-cat="all">All</button>
+  {% for c in cats %}<button class="pill" data-cat="{{ c.name }}"><i class="{{ c.icon }}"></i> {{ c.name }}</button>{% endfor %}
+</div>
+{% if apis %}
+<div class="grid" id="grid">
+{% for a in apis %}
+  {% set s = mine.get(a.id) %}
+  <div class="card glass" data-cat="{{ a.cat or '' }}" data-t="{{ (a.title ~ ' ' ~ (a.description or ''))|lower }}">
+    <div class="ico"><i class="{{ a.icon }}"></i></div>
+    {% if a.cat %}<span class="badge">{{ a.cat }}</span>{% endif %}
+    <h2>{{ a.title }}</h2>
+    <p class="desc">{{ a.description }}</p>
+    <div class="price">&#8377;{{ '%g'|format(a.price) }} <small>/ {{ a.days }} days</small></div>
+    {% if s and days_left(s.expires_at) > 0 %}
+      <span class="badge g">Active &middot; {{ days_left(s.expires_at) }} days left</span>
+      <a class="btn ghost" href="{{ url_for('buy', api_id=a.id) }}"><i class="fa-solid fa-rotate"></i> Renew</a>
+    {% else %}
+      <span class="badge y"><i class="fa-solid fa-lock"></i> Locked &middot; pay to unlock</span>
+      <a class="btn" href="{{ url_for('buy', api_id=a.id) }}"><i class="fa-solid fa-qrcode"></i> Buy &amp; pay by UPI</a>
+    {% endif %}
+  </div>
+{% endfor %}
+</div>
+<div class="glass empty" id="none" style="display:none"><i class="fa-solid fa-magnifying-glass"></i><p>No APIs match your search.</p></div>
+{% else %}
+<div class="glass empty"><i class="fa-solid fa-box-open"></i><p>No APIs listed yet. Check back soon.</p></div>
+{% endif %}
+{% endblock %}
+{% block js %}
+<script>
+const cards=[...document.querySelectorAll('.card')],pills=[...document.querySelectorAll('.pill')],s=document.getElementById('search');
+let cat='all';
+function f(){const t=(s.value||'').toLowerCase();let n=0;
+ cards.forEach(c=>{const ok=(cat==='all'||c.dataset.cat===cat)&&c.dataset.t.includes(t);c.style.display=ok?'':'none';if(ok)n++});
+ const none=document.getElementById('none');if(none)none.style.display=n?'none':''}
+pills.forEach(p=>p.onclick=()=>{pills.forEach(x=>x.classList.remove('on'));p.classList.add('on');cat=p.dataset.cat;f()});
+if(s)s.oninput=f;
+</script>
+{% endblock %}

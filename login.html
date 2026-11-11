@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Login - {{ S.site_name }}{% endblock %}
+{% block body %}
+<div class="auth"><div class="box glass">
+  <div class="brand"><i class="fa-solid fa-user-secret"></i>{{ S.site_name }}</div>
+  <h1>Welcome back</h1><p class="sub">{{ S.tagline }}. Log in to manage your APIs.</p>
+  {% for cat, m in get_flashed_messages(with_categories=true) %}<div class="flash {{ cat }}" style="width:auto;margin:14px 0 0">{{ m }}</div>{% endfor %}
+  <form method="post">
+    <input type="hidden" name="csrf" value="{{ csrf() }}">
+    <label>Username or email</label><input name="username" required autofocus autocomplete="username">
+    <label>Password</label><input type="password" name="password" required autocomplete="current-password">
+    <br><button class="btn full">Log in</button>
+  </form>
+  <p class="sub" style="text-align:center;margin-top:18px">New here? <a href="{{ url_for('register') }}">Create an account</a></p>
+  <p class="sub" style="text-align:center;font-size:.8rem;margin-top:14px">Credit: <b style="color:var(--blue)">{{ S.credit }}</b></p>
+</div></div>
+{% endblock %}

@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block title %}Admin - {{ S.site_name }}{% endblock %}
+{% macro act(name, id, label, cls='', tab=tab, extra='') %}
+<form method="post" action="{{ url_for('admin_do', action=name) }}" {{ extra|safe }}>
+<input type="hidden" name="csrf" value="{{ csrf() }}"><input type="hidden" name="tab" value="{{ tab }}"><input type="hidden" name="id" value="{{ id }}">
+<button class="btn sm {{ cls }}">{{ label|safe }}</button></form>
+{% endmacro %}
+{% block content %}
+<h1>Admin panel</h1>
+<div class="glass tabs">{% for t in tabs %}<a class="{{ 'on' if t==tab }}" href="{{ url_for('admin', tab=t) }}">{{ t }}</a>{% endfor %}</div>
+
+{% if tab=='dashboard' %}
+<div class="stats">
+  <div class="glass stat"><b>{{ users }}</b><span>Users</span></div>
+  <div class="glass stat"><b>{{ apis }}</b><span>APIs</span></div>
+  <div class="glass stat"><b>{{ active }}</b><span>Active subscriptions</span></div>
+  <div class="glass stat"><b>&#8377;{{ '%g'|format(revenue) }}</b><span>Revenue</span></div>
+  <div class="glass stat"><b>{{ pending }}</b><span>Failed-verify orders</span></div>
+  <div class="glass stat"><b>{{ hits }}</b><span>Total API hits</span></div>
+</div>
+<h2>Recent paid orders</h2><br>
+<div class="glass tbl"><table><tr><th>#</th><th>User</th><th>API</th><th>Amount</th><th>UTR</th><th>Date</th></tr>
+{% for o in recent %}<tr><td>{{ o.id }}</td><td>{{ o.username }}</td><td>{{ o.title }}</td><td>&#8377;{{ '%g'|format(o.amount) }}</td><td>{{ o.utr }}</td><td>{{ o.created_at[:16] }}</td></tr>
+{% else %}<tr><td colspan="6" class="sub">No paid orders yet.</td></tr>{% endfor %}</table></div>
+
+{% elif tab=='apis' %}
+<div class="glass pad">
+  <h2>{{ 'Edit API' if edit else 'Add new API' }}</h2>
+  <form method="post" action="{{ url_for('admin_do', action='api_save') }}">
+    <input type="hidden" name="csrf" value="{{ csrf() }}"><input type="hidden" name="tab" value="apis">
+    {% if edit %}<input type="hidden" name="id" value="{{ edit.id }}">{% endif %}
+    <div class="two">
+      <div><label>Title</label><input name="title" required value="{{ edit.title if edit }}"></div>
+      <div><label>Real API URL (hidden from users)</label><input name="target_url" required placeholder="https://example.com/api?param=" value="{{ edit.target_url if edit }}"></div>
+      <div><label>Price (&#8377;)</label><input name="price" type="number" step="0.01" min="1" required value="{{ edit.price if edit }}"></div>
+      <div><label>Validity (days)</label><input name="days" type="number" min="1" value="{{ edit.days if edit else 30 }}"></div>
+      <div><label>Category</label><select name="category_id"><option value="">None</option>
+        {% for c in cats %}<option value="{{ c.id }}" {{ 'selected' if edit and edit.category_id==c.id }}>{{ c.name }}</option>{% endfor %}</select></div>
+      <div><label>Icon (Font Awesome class)</label><input name="icon" placeholder="fa-solid fa-bolt" value="{{ edit.icon if edit }}"></div>
+    </div>
+    <label>Description</label><textarea name="description" rows="3">{{ edit.description if edit }}</textarea>
+    <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" name="active" style="width:auto" {{ 'checked' if (not edit) or edit.active }}> Visible in store</label>
+    <br><button class="btn"><i class="fa-solid fa-floppy-disk"></i> Save API</button>
+    {% if edit %}<a class="btn ghost" href="{{ url_for('admin', tab='apis') }}">Cancel</a>{% endif %}
+  </form>
+</div><br>
+<div class="glass tbl"><table><tr><th>Title</th><th>Category</th><th>Price</th><th>Days</th><th>Hits</th><th>Status</th><th>Gateway</th><th></th></tr>
+{% for a in rows %}<tr><td><i class="{{ a.icon }}"></i> {{ a.title }}</td><td>{{ a.cat or '-' }}</td><td>&#8377;{{ '%g'|format(a.price) }}</td><td>{{ a.days }}</td><td>{{ a.hits }}</td>
+<td><span class="badge {{ 'g' if a.active else 'y' }}">{{ 'live' if a.active else 'hidden' }}</span></td><td>/g/{{ a.slug }}</td>
+<td><div class="acts"><a class="btn sm ghost" href="{{ url_for('admin', tab='apis', edit=a.id) }}">Edit</a>
+{{ act('api_toggle', a.id, 'Show/Hide', 'ghost') }}{{ act('api_delete', a.id, 'Delete', 'red', extra='onsubmit="return confirm(\'Delete this API and its subscriptions?\')"') }}</div></td></tr>
+{% else %}<tr><td colspan="8" class="sub">No APIs yet. Add one above.</td></tr>{% endfor %}</table></div>
+
+{% elif tab=='categories' %}
+<div class="glass pad"><h2>Add category</h2>
+<form method="post" action="{{ url_for('admin_do', action='cat_save') }}" class="two">
+<input type="hidden" name="csrf" value="{{ csrf() }}"><input type="hidden" name="tab" value="categories">
+<div><label>Name</label><input name="name" required></div><div><label>Icon class</label><input name="icon" placeholder="fa-solid fa-layer-group"></div>
+<div><button class="btn">Add</button></div></form></div><br>
+<div class="glass tbl"><table><tr><th>Name</th><th>Icon</th><th></th></tr>
+{% for c in rows %}<tr><td>{{ c.name }}</td><td><i class="{{ c.icon }}"></i> {{ c.icon }}</td><td>{{ act('cat_delete', c.id, 'Delete', 'red') }}</td></tr>{% endfor %}</table></div>
+
+{% elif tab=='users' %}
+<div class="glass tbl"><table><tr><th>User</th><th>Email</th><th>Active APIs</th><th>Joined</th><th>Status</th><th>Actions</th></tr>
+{% for u in rows %}<tr><td>{{ u.username }} {% if u.is_admin %}<span class="badge">admin</span>{% endif %}</td><td>{{ u.email }}</td><td>{{ u.act }}</td><td>{{ u.created_at[:10] }}</td>
+<td><span class="badge {{ 'r' if u.is_banned else 'g' }}">{{ 'banned' if u.is_banned else 'ok' }}</span></td>
+<td>{% if not u.is_admin %}<div class="acts">
+<form method="post" action="{{ url_for('admin_do', action='user_grant') }}"><input type="hidden" name="csrf" value="{{ csrf() }}"><input type="hidden" name="tab" value="users"><input type="hidden" name="id" value="{{ u.id }}">
+<select name="api_id" style="width:130px;padding:6px">{% for a in apis %}<option value="{{ a.id }}">{{ a.title }}</option>{% endfor %}</select>
+<input name="days" type="number" value="30" style="width:64px;padding:6px"><button class="btn sm">Grant</button></form>
+{{ act('user_ban', u.id, 'Ban/Unban', 'ghost') }}{{ act('user_delete', u.id, 'Delete', 'red', extra='onsubmit="return confirm(\'Delete user and all data?\')"') }}</div>{% endif %}</td></tr>{% endfor %}</table></div>
+
+{% elif tab=='orders' %}
+<div class="glass tbl"><table><tr><th>#</th><th>User</th><th>API</th><th>Amount</th><th>Status</th><th>UTR</th><th>Note</th><th></th></tr>
+{% for o in rows %}<tr><td>{{ o.id }}</td><td>{{ o.username }}</td><td>{{ o.title }}</td><td>&#8377;{{ '%g'|format(o.amount) }}</td>
+<td><span class="badge {{ 'g' if o.status=='paid' else ('r' if o.status=='failed' else 'y') }}">{{ o.status }}</span></td><td>{{ o.utr or '-' }}</td><td>{{ o.note or '' }}</td>
+<td>{% if o.status!='paid' %}<div class="acts">{{ act('order_approve', o.id, 'Approve') }}{{ act('order_reject', o.id, 'Reject', 'red') }}</div>{% endif %}</td></tr>
+{% else %}<tr><td colspan="8" class="sub">No orders.</td></tr>{% endfor %}</table></div>
+
+{% elif tab=='subs' %}
+<div class="glass tbl"><table><tr><th>User</th><th>API</th><th>Days left</th><th>Expires</th><th>Hits</th><th>Status</th><th></th></tr>
+{% for s in rows %}<tr><td>{{ s.username }}</td><td>{{ s.title }}</td><td><b>{{ days_left(s.expires_at) }}</b></td><td>{{ s.expires_at[:16] }}</td><td>{{ s.hits }}</td>
+<td><span class="badge {{ 'g' if s.active and days_left(s.expires_at)>0 else 'r' }}">{{ 'active' if s.active and days_left(s.expires_at)>0 else 'inactive' }}</span></td>
+<td><div class="acts">{{ act('sub_extend', s.id, '+30 days') }}{{ act('sub_revoke', s.id, 'Suspend/Resume', 'ghost') }}</div></td></tr>
+{% else %}<tr><td colspan="7" class="sub">No subscriptions.</td></tr>{% endfor %}</table></div>
+
+{% elif tab=='settings' %}
+<div class="glass pad"><form method="post" action="{{ url_for('admin_do', action='settings_save') }}">
+<input type="hidden" name="csrf" value="{{ csrf() }}"><input type="hidden" name="tab" value="settings">
+<div class="two">
+<div><label>Site name</label><input name="site_name" value="{{ S.site_name }}"></div>
+<div><label>Tagline</label><input name="tagline" value="{{ S.tagline }}"></div>
+<div><label>UPI ID</label><input name="upi_id" value="{{ S.upi_id }}"></div>
+<div><label>Payee name</label><input name="payee" value="{{ S.payee }}"></div>
+<div><label>Verify-payment API URL</label><input name="verify_url" value="{{ S.verify_url }}"></div>
+<div><label>Verify request mode</label><select name="verify_mode">{% for m in ['auto','post_json','post_form','get'] %}<option value="{{ m }}" {{ 'selected' if S.verify_mode==m }}>{{ m }}</option>{% endfor %}</select></div>
+<div><label>Credit</label><input name="credit" value="{{ S.credit }}"></div>
+<div><label>QR validity (minutes)</label><input name="order_minutes" type="number" min="3" max="60" value="{{ S.order_minutes }}"></div>
+<div><label>Unique paise per order (safer auto-match)</label><select name="unique_paise"><option value="0" {{ 'selected' if S.unique_paise!='1' }}>Off - exact price</option><option value="1" {{ 'selected' if S.unique_paise=='1' }}>On - add 1-99 paise</option></select></div>
+</div>
+<label>Announcement (shown in store)</label><textarea name="announcement" rows="2">{{ S.announcement }}</textarea>
+<br><button class="btn"><i class="fa-solid fa-floppy-disk"></i> Save settings</button></form></div>
+<br><div class="glass pad"><h2>Gateway tester</h2><p class="sub">Sends a test request to the verify-payment API and shows exactly what it answers.</p>
+<form method="post" action="{{ url_for('admin_do', action='verify_test') }}" class="two">
+<input type="hidden" name="csrf" value="{{ csrf() }}"><input type="hidden" name="tab" value="settings">
+<div><label>Test amount (&#8377;)</label><input name="amount" type="number" step="0.01" value="1" required></div><div style="align-self:end"><button class="btn"><i class="fa-solid fa-vial"></i> Test gateway</button></div></form>
+<label>Last gateway reply</label><pre class="copy" style="white-space:pre-wrap">{{ S.last_verify_raw or 'No request made yet.' }}</pre></div>
+{% endif %}
+{% endblock %}

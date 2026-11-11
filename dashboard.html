@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}My APIs{% endblock %}
+{% block content %}
+<h1>My APIs</h1><p class="sub">Your active keys. Days left update automatically every day.</p><br>
+{% if subs %}
+<div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(340px,1fr))">
+{% for s in subs %}
+  {% set d = days_left(s.expires_at) %}{% set live = s.active and d>0 %}
+  {% set pct = (d / s.days * 100) if s.days else 0 %}
+  <div class="card glass">
+    <div style="display:flex;gap:12px;align-items:center"><div class="ico"><i class="{{ s.icon }}"></i></div>
+      <div><h2>{{ s.title }}</h2>
+      {% if live %}<span class="badge g">Active</span>{% elif not s.active %}<span class="badge y">Suspended</span>{% else %}<span class="badge r">Expired</span>{% endif %}</div></div>
+    <div style="display:flex;align-items:baseline;gap:8px"><span class="days">{{ d }}</span><span class="sub">days left</span></div>
+    <div class="bar"><i style="width:{{ [pct,100]|min }}%"></i></div>
+    <p class="sub" style="font-size:.8rem">{% if live %}Ends in <b class="live" data-exp="{{ s.expires_at.replace(' ','T') }}Z"></b> &middot; {% endif %}Expires {{ s.expires_at[:16] }} UTC &middot; {{ s.hits }} requests</p>
+    <label style="margin:4px 0">API key</label>
+    <div class="copy">{{ s.api_key }}<button class="btn sm ghost" data-copy="{{ s.api_key }}"><i class="fa-regular fa-copy"></i></button></div>
+    <label style="margin:4px 0">Endpoint</label>
+    <div class="copy">{{ base }}/g/{{ s.slug }}?key={{ s.api_key }}<button class="btn sm ghost" data-copy="{{ base }}/g/{{ s.slug }}?key={{ s.api_key }}"><i class="fa-regular fa-copy"></i></button></div>
+    <a class="btn ghost" href="{{ url_for('buy', api_id=s.api_id) }}"><i class="fa-solid fa-rotate"></i> Renew +{{ s.days }} days</a>
+  </div>
+{% endfor %}
+</div>
+{% else %}
+<div class="glass empty"><i class="fa-solid fa-key"></i><p>You have no APIs yet.</p><br><a class="btn" href="{{ url_for('store') }}">Browse the store</a></div>
+{% endif %}
+<br><h2>Recent orders</h2><br>
+<div class="glass tbl"><table><tr><th>#</th><th>API</th><th>Amount</th><th>Status</th><th>UTR</th><th>Date</th></tr>
+{% for o in orders %}<tr><td>{{ o.id }}</td><td>{{ o.title }}</td><td>&#8377;{{ '%g'|format(o.amount) }}</td>
+<td><span class="badge {{ 'g' if o.status=='paid' else ('r' if o.status=='failed' else 'y') }}">{{ o.status }}</span></td>
+<td>{{ o.utr or '-' }}</td><td>{{ o.created_at[:16] }}</td></tr>
+{% else %}<tr><td colspan="6" class="sub">No orders yet.</td></tr>{% endfor %}</table></div>
+{% endblock %}
+{% block js %}
+<script>
+function tick(){document.querySelectorAll('.live').forEach(e=>{let t=Math.max(0,Math.floor((new Date(e.dataset.exp)-Date.now())/1000));
+ const d=Math.floor(t/86400);t%=86400;const h=String(Math.floor(t/3600)).padStart(2,'0'),m=String(Math.floor(t%3600/60)).padStart(2,'0'),x=String(t%60).padStart(2,'0');
+ e.textContent=d+'d '+h+':'+m+':'+x})}
+tick();setInterval(tick,1000);
+</script>
+{% endblock %}

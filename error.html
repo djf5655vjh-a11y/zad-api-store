@@ -1,0 +1,5 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="glass empty"><i class="fa-solid fa-triangle-exclamation"></i>
+<h1>{{ e.code }}</h1><p class="sub">{{ e.description }}</p><br><a class="btn" href="{{ url_for('store') }}">Back to store</a></div>
+{% endblock %}

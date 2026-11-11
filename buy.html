@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Buy {{ api.title }}{% endblock %}
+{% block content %}
+<h1>Checkout</h1><p class="sub">Scan the QR and pay. Your API activates automatically - no need to do anything else.</p><br>
+<div class="two">
+  <div class="glass pad">
+    <div class="ico"><i class="{{ api.icon }}"></i></div><br>
+    <h2>{{ api.title }}</h2><p class="desc" style="margin:6px 0 14px">{{ api.description }}</p>
+    <div class="kv"><span>Plan</span><span>{{ api.days }} days</span></div>
+    <div class="kv"><span>Amount to pay</span><span><b>&#8377;{{ '%.2f'|format(order.amount) }}</b></span></div>
+    <div class="kv"><span>Order</span><span>#{{ order.id }} (ZAD{{ order.id }})</span></div>
+    <div class="kv"><span>Pay to</span><span>{{ S.upi_id }}</span></div>
+    <br>
+    <ol class="desc" style="padding-left:18px;line-height:1.8">
+      <li>Scan the QR with any UPI app - the amount is already filled.</li>
+      <li>Pay exactly &#8377;{{ '%.2f'|format(order.amount) }} and keep this page open.</li>
+      <li>We detect the payment and unlock your key instantly.</li>
+    </ol>
+  </div>
+  <div class="glass pad">
+    <div class="amt">&#8377;{{ '%.2f'|format(order.amount) }}</div>
+    <div class="qr"><img id="qr" src="data:image/png;base64,{{ qr }}" alt="UPI QR code"></div>
+    <div id="state" class="flash" style="width:auto;margin:0 0 12px;background:rgba(37,99,235,.10);color:var(--blue);border:1px solid rgba(37,99,235,.25);text-align:center">
+      <i class="fa-solid fa-circle-notch fa-spin"></i> <span id="msg">Waiting for payment...</span>
+      <div style="font-size:.8rem;font-weight:500;margin-top:4px">QR valid for <b id="timer">--:--</b></div>
+    </div>
+    <div class="copy">{{ S.upi_id }} <button class="btn sm ghost" data-copy="{{ S.upi_id }}"><i class="fa-regular fa-copy"></i> Copy</button></div>
+    <a class="btn ghost full" style="margin-top:10px" href="{{ link }}"><i class="fa-solid fa-mobile-screen"></i> Open UPI app</a>
+    <a id="renew" class="btn full" style="margin-top:10px;display:none" href="{{ url_for('buy', api_id=api.id) }}"><i class="fa-solid fa-rotate"></i> Generate new QR</a>
+    <details style="margin-top:16px">
+      <summary class="sub" style="cursor:pointer;font-weight:600">Paid but not detected? Enter UTR manually</summary>
+      <form method="post" action="{{ url_for('verify') }}">
+        <input type="hidden" name="csrf" value="{{ csrf() }}"><input type="hidden" name="order_id" value="{{ order.id }}">
+        <label>UTR / Transaction ID</label>
+        <input name="utr" required minlength="10" maxlength="25" placeholder="e.g. 412345678901" autocomplete="off">
+        <br><button class="btn full"><i class="fa-solid fa-shield-check"></i> Verify payment</button>
+      </form>
+    </details>
+  </div>
+</div>
+{% endblock %}
+{% block js %}
+<script>
+let left={{ left }},done=false;
+const timer=document.getElementById('timer'),msg=document.getElementById('msg'),box=document.getElementById('state');
+function fmt(s){return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0')}
+function expired(){done=true;box.style.background='rgba(220,38,38,.12)';box.style.color='#991b1b';box.style.borderColor='rgba(220,38,38,.3)';
+ box.querySelector('i').className='fa-solid fa-clock';msg.textContent='QR expired';document.getElementById('renew').style.display='flex';document.getElementById('qr').style.opacity='.25'}
+setInterval(()=>{if(done)return;left=Math.max(0,left-1);timer.textContent=fmt(left);if(left===0)expired()},1000);timer.textContent=fmt(left);
+async function poll(){
+ if(done)return;
+ try{const r=await fetch('{{ url_for("order_status", oid=order.id) }}',{cache:'no-store'});const d=await r.json();
+  if(d.status==='paid'){done=true;box.style.background='rgba(22,163,74,.14)';box.style.color='#166534';box.style.borderColor='rgba(22,163,74,.3)';
+   box.querySelector('i').className='fa-solid fa-circle-check';msg.textContent='Payment received! Activating your API...';setTimeout(()=>location.href=d.url,1200);return}
+  if(d.status==='expired'){expired();return}
+ }catch(e){}
+ setTimeout(poll,4000)}
+poll();
+</script>
+{% endblock %}
